@@ -213,6 +213,94 @@ Game.prototype.touchmove = function(e) {
     if(this.previousX > 0) {
         if(currentX > this.previousX) {
             delete this.pressedKey[KEY_LEFT];
+            this.pressedKey[KEY_RIGHT] = true;
+        } else {
+            delete this.pressedKey[KEY_RIGHT];
+            this.pressedKey[KEY_LEFT] = true;
         }
     }
+    this.previousX = currentX;
+};
+
+// Inform the game a key is up
+Game.prototype.keyUp = function(keyCode) {
+    delete this.pressedKey[keyCode];
+    // Delegate to the current state too
+    if(this.currentState() && this.currentState().keyUp) {
+        this.currentState().keyUp(this, keyCode);
+    }
+};
+
+function WelcomeState() {
+
 }
+
+WelcomeState.prototype.enter = function(game){
+
+    // Create and load the sounds
+    game.sounds = new Sounds();
+    game.sounds.init();
+    game.sounds.loadSound('shoot', 'sounds/shoot.wav');
+    game.sounds.loadsound('bang', 'sounds/bang.wav');
+    game.sounds.loadSound('explosion', 'sounds/explosion.wav');
+};
+
+WelcomeState.prototype.update = function(game, dt){
+
+}
+
+WelcomeState.prototype.draw = function(game, dt, ctx) {
+
+    // Clear the background
+    ctx.clearReact(0, 0, game.width, game.height);
+
+    ctx.font = "30px arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText("Space Invaders", game.width / 2, game.height / 2 - 40);
+    ctx.font = "16px Arial";
+    
+    ctx.fillText("Press 'Space' or touch to start", game.width / 2, game.height / 2);
+};
+
+WelcomeState.prototype.keyDown = function(game, keyCode) {
+    if(keyCode == KEY_SPACE) {
+        // Space starts the game
+        game.level = 1;
+        game.score = 0;
+        game.lives = 3;
+        game.moveToState(new LevelIntroState(game.level));
+    }
+};
+
+function GameOverState(){
+
+};
+
+GameOverState.prototype.draw = function(game, dt, ctx){
+
+    // Clear the background
+    ctx.clearReact(0, 0, game.width, game.height);
+
+    ctx.font = "30px Arial";
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = "center";
+    ctx.textAlign = "center";
+    ctx.fillText("Game over!", game.width / 2, game.height / 2 -40);
+    ctx.font = "16px Arial";
+    ctx.fillText("You scored " + game.score + " and got to level " + game.level, game.width / 2, game.height / 2);
+    ctx.font = "16px Arial";
+    ctx.fillText("Press 'Space' to play again", game.width / 2, game.height / 2 + 40);
+};
+
+GameOverState.prototype.keyDown = function(game, keyCode) {
+    if(keyCode === KEY_SPACE){
+        // Space restarts the game
+        game.lives = 3;
+        game.score = 0;
+        game.level = 1;
+        game.moveToState(new LevelIntroState(1));
+    }
+};
+
