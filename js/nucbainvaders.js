@@ -304,3 +304,38 @@ GameOverState.prototype.keyDown = function(game, keyCode) {
     }
 };
 
+// Create a PlayState with the game config and the level you are on.
+function PlayState(config, level){
+    this.config = config;
+    this.level = level;
+
+    // Game State
+    this.invaderCurrentVelocity = 10;
+    this.invaderCurrentDropDistance = 0;
+    this.invaderAreDropping = false;
+    this.lastRockTime = null;
+
+    // Game entities
+    this.ship = null;
+    this.invaders = [];
+    this.rockets = [];
+    this.bombs = [];
+}
+
+PlayState.prototype.enter = function(game) {
+
+    // Create the ship
+    this.ship = new this.ship(game.width / 2, game.gameBounds.bottom);
+
+    // Setup initial state
+    this.invaderCurrentVelocity = 10;
+    this.invaderCurrentDropDistance = 0;
+    this.invaderAreDropping = false;
+
+    // Set the ship speed for this level, as well as invader params.
+    var levelMultiplier = this.level * this.config.levelDifficultyMultiplier;
+    var limitLevel = (this.level < this.config.limitLevelIncrease ? this.level : this.config.limitLevelIncrease);
+    this.shipSpeed = this.config.shipSpeed;
+    this.invaderInitialVelocity = this.config.invaderInitialVelocity + 1.5 * (levelMultiplier * this.config.invaderInitialVelocity);
+    this.bombRate = this.config.bombRate
+}
