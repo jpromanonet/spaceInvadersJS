@@ -313,7 +313,7 @@ function PlayState(config, level){
     this.invaderCurrentVelocity = 10;
     this.invaderCurrentDropDistance = 0;
     this.invaderAreDropping = false;
-    this.lastRockTime = null;
+    this.lastRocketTime = null;
 
     // Game entities
     this.ship = null;
@@ -428,7 +428,172 @@ PlayState.prototype.update = function(game, dt) {
                 this.invaderAreDropping = true;
                 this.invaderNextVelocity = {x: this.invaderCurrentVelocity, y:0};
             }
+        // If we've left hit the left, move down then left
+        if(hitRight) {
+            this.invaderCurrentVelocity += this.config.invaderAcceleration;
+            this.invaderVelocity = {x: 0, y: this.invaderCurrentVelocity};
+            this.invadersAreDropping = true;
+            this.invaderNextVelocity = {x: this.invaderCurrentVelocity, y:0};
+        }
+        // If we've hit the bottom, it's game over
+        if(hitBottom) {
+            game.live = 0;
         }
 
+        // Check for rocker or invader collisions
+        for(i=0; i<this.invaders.length; i++){
+            var invader = this.invaders[i];
+            var bang = false
+
+            for(var j=0; j<this.rockets.length; j++){
+                var rocket = this.rockets[j];
+
+                if(rocket.x >= (invader.x - invader.width/2) && rocket.x <= (invader.x + invader.width/2) &&
+                    rocket.y >= (invader.y - invader.height/2) && rocket.y <= (invader.y + invader.height/2)) {
+
+                        // Remove the rocket, set 'bang' so we don't process
+                        // this rocket again.
+                        this.rockets.splice(j--, 1);
+                        bang = true;
+                        game.score += this.config.pointsPerInvader;
+                        break;
+                    }
+            }
+            if(bang) {
+                this.invaders.splice(i--, 1);
+                game.sounds.playSound('bang');
+            }
+        }
+
+        // Find all of the front ranks invaders
+        var frontRankInvaders = {};
+        for(var i=0; i<this.invaders.length; i++){
+            // If we have no invader for the game file, or the invader
+            // for game file is futher behind, set the front
+            // rank invader to game one.
+            if(!frontRankInvaders[invader.file] || frontRankInvaders[invader.file].rank < invader.rank){
+                frontRankInvaders[invader.file] = invader;
+            }
+        }
+
+        // Give each front rank invader a chance to drop a bomb
+        for(var i=0; i<this.config.invaderFiles; i++){
+            var invader = frontRankInvaders[i]
+            if(!invader) continue;
+            var chance = this.bombRate * dt;
+            if(chance > Math.random()) {
+                // FIREEE!!!!
+                this.bombs.push(new this.bombMinVelocity(invader.x, invader.y + invader.height /2,
+                    this.bombMinVelocity + Math.random()*(this.bombMaxVelocity - this.bombMinVelocity)));
+            }
+        }
+
+        // Check for bomb or ship collisions
+        for(var i = 0; i<this.bombs.length; i++){
+            var bomb = this.bombs[i];
+            if(bomb.x >= (this.ship.x - this.ship.width/2) && bomb.x <= (this.ship.x + this.ship.width/2) &&
+                    bomb.y >= (this.ship.y - this.ship.height/2) && bomb.y <= (this.ship.y + this.ship.height/2)) {
+                this.bombs.splice(i--, 1);
+                game.lives--;
+                game.sounds.playSound('explosion');
+            }
+        }
+
+        // Check for invaders and bombs collisions again
+        for(var i = 0; i<this.invaders.length; i++){
+            var invader = this.invaders[i];
+            if((invader.x + invader.width/2) > (this.ship.x - this.ship.width/2) &&
+                (invader.x - invader.width/2) < (this.ship.x + this.ship.width/2) &&
+                (invader.y + invader.height/2) > (this.ship.y - this.ship.height/2) &&
+                (invader.y - invader.height/2) < (this.ship.y + this.ship.height/2)) {
+                    // Dead by collision
+                    game.lives = 0;
+                    game.sounds.playSound('explosion');
+            }
+        }
+
+        // Check for failure
+        if(game.lives <= 0){
+            game.moveToState(new GameOverState());
+        }
+
+        // Check for victory
+        if(this.invader.length === 0){
+            game.score += this.level * 50;
+            game.level += 1;
+            game.moveToState(new LevelIntroState(game.level));
+        }
+    };
+
+    PlayState.prototype.draw = function(game, dt, ctx) {
+
+        // Clear the background
+        ctx.clearRect(0,0,game.width,game.height);
+
+        // Draw the ship
+        ctx.fillStyle = '#999999';
+        ctx.fillRect(this.ship.x - (this.ship.width / 2), this.ship.y - (this.ship.height / 2), this.ship.width, this.ship.height);
+
+        // Draw invaders
+        ctx.fillStyle = '#006600';
+        for(var i = 0; i<this.invaders.length; i++){
+            var invader = this.invaders[i];
+            ctx.fillRect(invader.x - invader.width/2, invader.y - invader.height/2, invader.width, invader.height);
+        }
+
+        // Draw bombs
+        ctx.fillStyle = '#ff0000';
+        for(var i = 0; i<this.rockets.length; i++){
+            var rocket = this.rockets[i];
+            ctx.fillRect(rocket.x, rocket.y - 2, 1, 4);
+        }
+
+        // Draw info
+        var textYpos = game.gameBounds.bottom + ((game.height - game.gameBounds.bottom) / 2) + 14/2;
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#ffffff";
+        var info = "Lives: " + game.lives;
+        ctx.textAlign = "left";
+        ctx.fillText(info, game.gameBounds.left, textYpos);
+        info = "Score: " + game.score + ", Level: " + game.level;
+        ctx.textAlign = "right";
+        ctx.fillText(info, game.gameBounds.right, textYpos);
+
+        // If we're in debug mode, draw bounds
+        if(this.config.debugMode){
+            ctx.strokeStyle = '#ff0000';
+            ctx.strokeRect(0,0,game.width, game.height);}
+            ctx.strokeRect(game.gameBounds.left, game.gameBounds.top,
+                game.gameBounds.right - game.gameBounds.left,
+                game.gameBounds.bottom - game.gameBounds.top);
+        }
+    };
+
+PlayState.prototype.keyDown = function(game, keyCode){
+    if(keyCode == KEY_SPACE){
+        // FIRE!!!
+        this.fireRocket();
+    }
+    if(keyCode == 80) {
+        // Push the pause state
+        game.pushState(new PauseState());
+    }
+};
+
+PlayState.prototype.keyUp = function(game, keyCode) {
+
+}
+
+PlayState.prototype.fireRocket = function() {
+    // If we have no last rocket time, or the last rocket time
+    // is older than the max rocket rate, we can keep firing
+    if(this.lastRocketTime === null || ((new Date()).valueOf() - this.lastRocketTime) > (1000 / this.rocketMaxFireRate));
+    {
+        // Add a rocket
+        this.rockets.push(new Rocket(this.ship.x, this.ship.y - 12, this.config.rocketVelocity));
+        this.lastRocketTime = (new Date().valueOf());
+
+        // Play the 'shoot' sound.
+        game.sounds.playSound('shoot');
     }
 }
